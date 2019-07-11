@@ -300,14 +300,16 @@ def render_activate_script(environment, shell):
         value = environment[variable]
 
         if shell == "bash":
-            pathsep = ":"
 
             if isinstance(value, list):
                 # Lists are supposed to prepend to the existing value
+                pathsep = ":"
                 value = pathsep.join(value) + pathsep + "${variable}".format(variable=variable)
 
             script.append("if [ ! -z ${{{variable}+x}} ]; then".format(variable=variable))
             script.append("    export CONDA_DEVENV_BKP_{variable}=\"${variable}\"".format(variable=variable))
+            script.append("else")
+            script.append("    unset CONDA_DEVENV_BKP_{variable}".format(variable=variable))
             script.append("fi")
             script.append("export {variable}=\"{value}\"".format(variable=variable, value=value))
 
@@ -358,11 +360,25 @@ def render_deactivate_script(environment, shell='bash'):
 
         if shell == "bash":
             script.append("if [ ! -z ${{CONDA_DEVENV_BKP_{variable}+x}} ]; then".format(variable=variable))
-            script.append("    export {variable}=\"$CONDA_DEVENV_BKP_{variable}\"".format(variable=variable))
+            if isinstance(value, list):
+                pathsep = ":"
+                values_to_remove = pathsep.join(value)
+                script.append("    export {variable}=\"\\{pathsep}${{{variable}}}\\{pathsep}\"".format(variable=variable, pathsep=pathsep))
+                command = (
+                    "    export {variable}=${{{variable}"
+                    "//'{pathsep}{values_to_remove}{pathsep}'"
+                    "/\\{pathsep}}}"
+                ).format(variable=variable, pathsep=pathsep, values_to_remove=values_to_remove)
+                script.append(command)
+                script.append("    export {variable}=\"${{{variable}:1:-1}}\"".format(variable=variable))
+            else:
+                script.append("    export {variable}=\"$CONDA_DEVENV_BKP_{variable}\"".format(variable=variable))
+
             script.append("    unset CONDA_DEVENV_BKP_{variable}".format(variable=variable))
             script.append("else")
             script.append("    unset {variable}".format(variable=variable))
             script.append("fi")
+            script.append("unset CONDA_DEVENV_BKP_{variable}".format(variable=variable))
 
         elif shell == "cmd":
             if isinstance(value, list):
