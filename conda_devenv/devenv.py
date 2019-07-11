@@ -298,6 +298,7 @@ def render_activate_script(environment, shell):
 
     for variable in sorted(environment):
         value = environment[variable]
+
         if shell == "bash":
             pathsep = ":"
 
@@ -311,12 +312,13 @@ def render_activate_script(environment, shell):
             script.append("export {variable}=\"{value}\"".format(variable=variable, value=value))
 
         elif shell == "cmd":
-            pathsep = ";"
             if isinstance(value, list):
                 # Lists are supposed to prepend to the existing value
+                pathsep = ";"
                 value = pathsep.join(value) + pathsep + "%{variable}%".format(variable=variable)
-
-            script.append("set \"CONDA_DEVENV_BKP_{variable}=%{variable}%\"".format(variable=variable))
+            else:
+                script.append("set \"CONDA_DEVENV_BKP_{variable}=%{variable}%\"".format(variable=variable))
+                
             script.append("set \"{variable}={value}\"".format(variable=variable, value=value))
 
         elif shell == "fish":
@@ -352,6 +354,8 @@ def render_deactivate_script(environment, shell='bash'):
         script = ["@echo off"]
 
     for variable in sorted(environment):
+        value = environment[variable]
+
         if shell == "bash":
             script.append("if [ ! -z ${{CONDA_DEVENV_BKP_{variable}+x}} ]; then".format(variable=variable))
             script.append("    export {variable}=\"$CONDA_DEVENV_BKP_{variable}\"".format(variable=variable))
@@ -361,8 +365,21 @@ def render_deactivate_script(environment, shell='bash'):
             script.append("fi")
 
         elif shell == "cmd":
-            script.append("set \"{variable}=%CONDA_DEVENV_BKP_{variable}%\"".format(variable=variable))
-            script.append("set CONDA_DEVENV_BKP_{variable}=".format(variable=variable))
+            if isinstance(value, list):
+                # Lists are supposed to prepend to the existing value
+                pathsep = ";"
+                values_to_remove = pathsep.join(value)
+                script.append("set \"{variable}={pathsep}%{variable}%{pathsep}\"".format(variable=variable, pathsep=pathsep))
+                command = (
+                    "set \"{variable}=%{variable}"
+                    ":{pathsep}{values_to_remove}{pathsep}"
+                    "={pathsep}%\""
+                ).format(variable=variable, pathsep=pathsep, values_to_remove=values_to_remove)
+                script.append(command)
+                script.append("set \"{variable}=%{variable}:~1,-1%\"".format(variable=variable))
+            else:
+                script.append("set \"{variable}=%CONDA_DEVENV_BKP_{variable}%\"".format(variable=variable))
+                script.append("set CONDA_DEVENV_BKP_{variable}=".format(variable=variable))
 
         elif shell == "fish":
             script.append("set -gx {variable} $CONDA_DEVENV_BKP_{variable}".format(variable=variable))
