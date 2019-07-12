@@ -1,0 +1,9 @@
+name: foo
+
+
+dependencies:
+  - python >3
+
+environment:
+  PATH:
+    - {{ os.path.join(root, 'foo', 'maximus') }}

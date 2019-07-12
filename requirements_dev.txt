@@ -1,6 +1,8 @@
 PyYAML
 Sphinx
 bumpversion
+conda=4.7.5
+conda-wrappers
 coverage
 cryptography
 flake8
@@ -8,6 +10,7 @@ pip
 pytest >= 3
 pytest-datadir >= 1.0
 pytest-mock
+python > 3
 tox
 watchdog
 wheel
